@@ -6,7 +6,7 @@ import scapy
 import allfields
 
 def select_interface():
-	print("Select an interface by index, or press enter to choose the default\n")
+	print("Select an interface by index, or press enter to choose the default:\n")
 	interfaces.show_interfaces()
 	iface = scapy.config.conf.iface
 	print(f"Default: {iface}")
