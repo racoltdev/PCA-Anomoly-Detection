@@ -5,17 +5,22 @@ from pynput import keyboard
 import sys
 import time
 import pywinctl
+import random
+import matplotlib.pyplot as plt
+import numpy
 
 import allfields
 import livecapture
 
 app_window = pywinctl.getActiveWindow()
 
-def train_live_capture():
+def train_live_capture(stop_condition="keyboard"):
+	scatter_sample = [0] * 1000
+
 	# Must be bigger than 10 to work with PCA. 100 seems fine
 	batch_size = 100
 	n_components = len(allfields.get_all_fields())
-	ipca = IncrementalPCA(n_components=n_components, batch_size=batch_size)
+	ipca = IncrementalPCA(n_components=3, batch_size=batch_size)
 
 	interface = livecapture.select_interface()
 	packet_count = 0
@@ -31,23 +36,42 @@ def train_live_capture():
 
 			fields = livecapture.capture(batch_size, listener)
 			packet_count += len(fields)
-			ipca.fit(fields)
+			# livecapture can exit before filling enough of a batch for pca to read
+			if (len(fields) > 10):
+				ipca.partial_fit(fields)
+				scatter_sample = get_scatter_sample(scatter_sample, fields, batch_size / packet_count)
 
 	listener.join()
 	print("\n")
+	scatter3d(scatter_sample, ipca)
 	print("Done")
 
-def scatter3d(df, pca):
+def scatter3d(sample, pca):
 	fig = plt.figure()
 	ax = fig.add_subplot(projection='3d')
-	num_points = 1000;
-	random.seed()
-	row_count = df.shape[0]
 
-	plt.scatter(pca[:1000,0], pca[:1000,1], pca[1000:2])
-#	for i in range(num_points):
-#		df_index = random.randint(0, row_count)
-#		df.iloc[[df_index]]
+	transformed = numpy.array(pca.transform(sample))
+	ax.scatter(transformed[:, 0], transformed[:, 1], zs=transformed[:, 2])
+
+	plt.show()
+
+def get_scatter_sample(scatter_sample, packets, proportional_weight):
+	# In case the first iteration is cut short
+	proportional_weight = min(proportional_weight, 1)
+
+	if proportional_weight == 1:
+		return packets[:len(scatter_sample)]
+
+	replace_count = int(len(scatter_sample) * proportional_weight)
+	replace_count = max(replace_count, 1)
+	replace_count = min(replace_count, len(packets))
+
+	for i in range(replace_count):
+		pick = random.randint(0, len(packets) - 1)
+		replace_index = random.randint(0, len(scatter_sample) - 1)
+		scatter_sample[replace_index] = packets[pick]
+		del packets[pick]
+	return scatter_sample
 
 def on_press(key):
 	active_window = pywinctl.getActiveWindow()
