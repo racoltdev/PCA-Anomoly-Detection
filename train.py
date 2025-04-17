@@ -1,16 +1,13 @@
 from sklearn.decomposition import IncrementalPCA
 import pandas
-import random
 from pynput import keyboard
 import sys
 import time
 import pywinctl
-import random
-import matplotlib.pyplot as plt
-import numpy
 
 import allfields
 import livecapture
+import plot
 
 app_window = pywinctl.getActiveWindow()
 
@@ -18,110 +15,47 @@ def train_live_capture(iface=None, timeout=None):
 	scatter_sample = []
 	sample_size = 1000
 
-	# Must be bigger than 10 to work with PCA. 100 seems fine
 	batch_size = 100
 	n_components = len(allfields.get_all_fields())
 	ipca = IncrementalPCA(n_components=3, batch_size=batch_size)
 
+	packet_count = 0
+	start_time = int(time.time())
+	exit_condition = setup_exit_function(timeout)
 	if iface == None:
 		iface = livecapture.select_interface()
 	else:
 		print(f"Using interface {iface}\n")
 
-	packet_count = 0
-	start_time = int(time.time())
+	while(not exit_condition(0)):
+		ui_update(start_time, packet_count)
 
-	exit_condition = lambda _: False
+		packets = livecapture.capture(iface, batch_size, exit_condition)
+		packet_count += len(packets)
+
+		# livecapture can exit before filling enough of a batch for pca to train with
+		if (len(packets) > 10):
+			ipca.partial_fit(packets)
+			proportion = batch_size / packet_count
+			scatter_sample = plot.get_scatter_sample(scatter_sample, packets, proportion, sample_size)
+
+	ui_update(start_time, packet_count)
+
+	print("\n")
+	print(f"Captured {packet_count} packets")
+	plot.scatter3d(scatter_sample, ipca)
+	print("Done")
+
+def setup_exit_function(timeout):
 	if timeout == None:
 		listener = keyboard.Listener(on_press=quit_on_q)
 		listener.start()
 		print("Capturing packets and training PCA. Press q to stop training:")
-		exit_condition = lambda _: not listener.running
+		return lambda _: not listener.running
 	else:
+		start_time = int(time.time())
 		print(f"Capturing packets and training PCA. Capture will run for {timeout} seconds:")
-		exit_condition = lambda _: int(time.time()) - start_time > int(timeout)
-
-	while(not exit_condition(0)):
-		elapsed_time = int(time.time()) - start_time
-		format_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
-		print(f"\rRun time: {format_time}\tCaptured packets: {packet_count}", end="")
-		sys.stdout.flush()
-
-		packets = livecapture.capture(iface, batch_size, exit_condition)
-
-		packet_count += len(packets)
-		# livecapture can exit before filling enough of a batch for pca to read
-		if (len(packets) > 10):
-			ipca.partial_fit(packets)
-			proportion = batch_size / packet_count
-			scatter_sample = get_scatter_sample(scatter_sample, packets, proportion, sample_size)
-			print(len(scatter_sample))
-
-	elapsed_time = int(time.time()) - start_time
-	format_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
-	print(f"\rRun time: {format_time}\tCaptured packets: {packet_count}", end="")
-	sys.stdout.flush()
-
-	print("\n")
-	print(f"Captured {packet_count} packets")
-	scatter3d(scatter_sample, ipca)
-	print("Done")
-
-def scatter3d(sample, pca):
-	fig = plt.figure()
-	ax = fig.add_subplot(projection='3d')
-
-	transformed = numpy.array(pca.transform(sample))
-	points, s = get_point_sizes(transformed)
-	print(len(points))
-	ax.scatter(points[:, 0], points[:, 1], zs=points[:, 2], s=s)
-
-	plt.show()
-	#plt.savefig("30min-NoIp.png")
-
-def get_point_sizes(data):
-	repeat_count = dict()
-	point_lookup = dict()
-	total_repeats = 0
-	for point in data:
-		hashed_point = point.tostring()
-		if hashed_point not in repeat_count:
-			repeat_count[hashed_point] = 20
-			point_lookup[hashed_point] = point.tolist()
-		else:
-			repeat_count[hashed_point] += 2
-			total_repeats += 1
-
-	# Gauranteed to be the same order since they use the same hash
-	points_list = list(point_lookup.values())
-	ordered_points = numpy.array([numpy.array(p) for p in points_list])
-	ordered_sizes = repeat_count.values()
-
-	return ordered_points, ordered_sizes
-
-
-def get_scatter_sample(scatter_sample, packets, proportion, sample_size):
-	# In case the first iteration is cut short
-	proportion = min(proportion, 1)
-
-	if proportion == 1:
-		return packets[:len(scatter_sample)]
-
-	if len(scatter_sample) < sample_size:
-		remaining_capacity = sample_size - len(scatter_sample)
-		[scatter_sample.append(x) for x in packets[:remaining_capacity]]
-		return scatter_sample
-
-	replace_count = int(len(scatter_sample) * proportion)
-	replace_count = max(replace_count, 1)
-	replace_count = min(replace_count, len(packets))
-
-	for i in range(replace_count):
-		pick = random.randint(0, len(packets) - 1)
-		replace_index = random.randint(0, len(scatter_sample) - 1)
-		scatter_sample[replace_index] = packets[pick]
-		del packets[pick]
-	return scatter_sample
+		return lambda _: int(time.time()) - start_time > int(timeout)
 
 def quit_on_q(key):
 	active_window = pywinctl.getActiveWindow()
@@ -132,6 +66,12 @@ def quit_on_q(key):
 		except AttributeError:
 			pass
 	return True
+
+def ui_update(start_time, packet_count):
+	elapsed_time = int(time.time()) - start_time
+	format_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+	print(f"\rRun time: {format_time}\tCaptured packets: {packet_count}", end="")
+	sys.stdout.flush()
 
 def train_csv(csv):
 	raise NotImplementedError

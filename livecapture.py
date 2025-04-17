@@ -22,8 +22,6 @@ def capture(iface, packet_count, exit_condition):
 	packet_filter = "tcp or udp"
 	sniffer = AsyncSniffer(iface=iface, count=packet_count, filter=packet_filter, stop_filter=exit_condition)
 	try:
-		# Stop capture part way through a batch if user requests a stop
-		#stop_if = lambda _: not listener.running
 		sniffer.start()
 		sniffer.join()
 		fields = extract_fields(sniffer.results)
@@ -102,7 +100,7 @@ def extract_fields(capture):
 		if packet.haslayer("NBTDatagram"):
 			layer = packet.getlayer("NBTDatagram")
 			field_dict["NBT"] = 1
-			field_dict["NBT_sublayer"] = hash(next(get_packet_layers(packet)).name) & 0xFF
+			#field_dict["NBT_sublayer"] = hash(next(get_packet_layers(packet)).name) & 0xFF
 			field_dict["nbt_type"] = layer.Type
 			field_dict["nbt_flags"] = layer.Flags
 
