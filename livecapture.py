@@ -50,12 +50,16 @@ def extract_fields(capture):
 		if packet.haslayer("IP"):
 			layer = packet.getlayer("IP")
 			field_dict["IP"] = 1
-			field_dict["src_ip"] = hash(layer.src)
-			field_dict["dst_ip"] = hash(layer.dst)
+			#field_dict["src_ip"] = hash(layer.src)
+			#field_dict["dst_ip"] = hash(layer.dst)
 			field_dict["proto"] = layer.proto
 			field_dict["length"] = len(packet)
 			field_dict["ttl"] = layer.ttl
 			field_dict["ip_flags"] = int(layer.flags)
+			field_dict["ip_version"] = layer.version
+			field_dict["ip_ihl"] = layer.ihl
+			field_dict["ip_frag"] = layer.frag
+			field_dict["ip_tos"] = layer.tos
 
 		if packet.haslayer("UDP"):
 			layer = packet.getlayer("UDP")
@@ -69,6 +73,28 @@ def extract_fields(capture):
 			field_dict["src_port"] = layer.sport
 			field_dict["dst_port"] = layer.dport
 			field_dict["tcp_flags"] = int(layer.flags)
+			field_dict["urgptr"] = layer.urgptr
+
+		if packet.haslayer("RAW"):
+			field_dict["RAW"] = 1
+		if packet.haslayer("DHCP"):
+			field_dict["DHCP"] = 1
+			layer = packet.getlayer("DHCP")
+			for opt in layer.options:
+				try:
+					key, value = opt
+					if key == "message-type":
+						field_dict["dhcp_type"] = value
+						break
+				except:
+					pass
+		if packet.haslayer("NBNS Header"):
+			field_dict["NBNS"] = 1
+		if packet.haslayer("NBT Datagram Packet"):
+			layer = packet.getlayer("NBT Datagram Packet")
+			#field_dict["NBT_sublayer"] = hash(next(get_packet_layers(packet)).name)
+			field_dict["nbt_type"] = layer.Type
+			field_dict["nbt_flags"] = layer.Flags
 
 		layer_count = 0
 		for layer in get_packet_layers(packet):

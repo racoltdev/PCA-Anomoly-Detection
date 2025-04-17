@@ -63,9 +63,11 @@ def scatter3d(sample, pca):
 	ax = fig.add_subplot(projection='3d')
 
 	transformed = numpy.array(pca.transform(sample))
+	# TODO find repeat points and plot with s proportional to frquency
 	ax.scatter(transformed[:, 0], transformed[:, 1], zs=transformed[:, 2])
 
 	plt.show()
+	#plt.savefig("30min-NoIp.png")
 
 def get_scatter_sample(scatter_sample, packets, proportional_weight):
 	# In case the first iteration is cut short
