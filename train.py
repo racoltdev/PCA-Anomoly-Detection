@@ -32,9 +32,9 @@ def train_live_capture(iface=None, timeout=None):
 
 	exit_condition = lambda _: False
 	if timeout == None:
-		print("Capturing packets and training PCA. Press q to stop training:")
-		listener = keyboard.Listener(on_press=on_press)
+		listener = keyboard.Listener(on_press=quit_on_q)
 		listener.start()
+		print("Capturing packets and training PCA. Press q to stop training:")
 		exit_condition = lambda _: not listener.running
 	else:
 		print(f"Capturing packets and training PCA. Capture will run for {timeout} seconds:")
@@ -47,11 +47,17 @@ def train_live_capture(iface=None, timeout=None):
 		sys.stdout.flush()
 
 		fields = livecapture.capture(iface, batch_size, exit_condition)
+
 		packet_count += len(fields)
 		# livecapture can exit before filling enough of a batch for pca to read
 		if (len(fields) > 10):
 			ipca.partial_fit(fields)
 			scatter_sample = get_scatter_sample(scatter_sample, fields, batch_size / packet_count)
+
+	elapsed_time = int(time.time()) - start_time
+	format_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+	print(f"\rRun time: {format_time}\tCaptured packets: {packet_count}", end="")
+	sys.stdout.flush()
 
 	print("\n")
 	print(f"Captured {packet_count} packets")
@@ -82,10 +88,8 @@ def get_point_sizes(data):
 			repeat_count[hashed_point] += 2
 
 	# Gauranteed to be the same order since they use the same hash
-	#print(list(point_lookup.values()))
 	points_list = list(point_lookup.values())
 	ordered_points = numpy.array([numpy.array(p) for p in points_list])
-	#points = numpy.ndarray(list(point_lookup.values()))
 	ordered_sizes = repeat_count.values()
 
 	return ordered_points, ordered_sizes
@@ -109,7 +113,7 @@ def get_scatter_sample(scatter_sample, packets, proportional_weight):
 		del packets[pick]
 	return scatter_sample
 
-def on_press(key):
+def quit_on_q(key):
 	active_window = pywinctl.getActiveWindow()
 	if active_window == app_window:
 		try:

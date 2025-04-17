@@ -1,5 +1,6 @@
 #from scapy.sendrecv import sniff
 from scapy.all import sniff
+from scapy.sendrecv import AsyncSniffer
 from scapy import interfaces
 import scapy
 
@@ -17,15 +18,23 @@ def select_interface():
 	return iface
 
 def capture(iface, packet_count, exit_condition):
-	# Stop capture part way through a batch if user requests a stop
-	#stop_if = lambda _: not listener.running
+	# AsyncSniffer must be used to exit early on ctrl-c when count or timeout specified
 	packet_filter = "tcp or udp"
-	capture = sniff(iface=iface, count=packet_count, filter=packet_filter, stop_filter=exit_condition)
+	sniffer = AsyncSniffer(iface=iface, count=packet_count, filter=packet_filter, stop_filter=exit_condition)
+	try:
+		# Stop capture part way through a batch if user requests a stop
+		#stop_if = lambda _: not listener.running
+		sniffer.start()
+		sniffer.join()
+		fields = extract_fields(sniffer.results)
+		for i in range(len(fields)):
+			fields[i] = list(fields[i].values())
+		return fields
 
-	fields = extract_fields(capture)
-	for i in range(len(fields)):
-		fields[i] = list(fields[i].values())
-	return fields
+	except KeyboardInterrupt:
+		sniffer.stop()
+		print()
+		raise KeyboardInterrupt
 
 def expand_layers(x):
     yield x
@@ -50,8 +59,8 @@ def extract_fields(capture):
 		if packet.haslayer("IP"):
 			layer = packet.getlayer("IP")
 			field_dict["IP"] = 1
-			#field_dict["src_ip"] = hash(layer.src)
-			#field_dict["dst_ip"] = hash(layer.dst)
+			#field_dict["src_ip"] = hash(layer.src) & 0xFF
+			#field_dict["dst_ip"] = hash(layer.dst) & 0xFF
 			field_dict["proto"] = layer.proto
 			field_dict["length"] = len(packet)
 			field_dict["ttl"] = layer.ttl
@@ -90,16 +99,15 @@ def extract_fields(capture):
 					pass
 		if packet.haslayer("NBNS Header"):
 			field_dict["NBNS"] = 1
-		if packet.haslayer("NBT Datagram Packet"):
-			layer = packet.getlayer("NBT Datagram Packet")
-			#field_dict["NBT_sublayer"] = hash(next(get_packet_layers(packet)).name)
+		if packet.haslayer("NBTDatagram"):
+			layer = packet.getlayer("NBTDatagram")
+			field_dict["NBT"] = 1
+			field_dict["NBT_sublayer"] = hash(next(get_packet_layers(packet)).name) & 0xFF
 			field_dict["nbt_type"] = layer.Type
 			field_dict["nbt_flags"] = layer.Flags
 
 		layer_count = 0
 		for layer in get_packet_layers(packet):
-			# print(layer.name)
-			# print(layer.fields)
 			layer_count += 1
 		field_dict["layer_count"] = layer_count
 		fields.append(field_dict)
