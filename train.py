@@ -15,7 +15,8 @@ import livecapture
 app_window = pywinctl.getActiveWindow()
 
 def train_live_capture(iface=None, timeout=None):
-	scatter_sample = [0] * 1000
+	scatter_sample = []
+	sample_size = 1000
 
 	# Must be bigger than 10 to work with PCA. 100 seems fine
 	batch_size = 100
@@ -46,13 +47,15 @@ def train_live_capture(iface=None, timeout=None):
 		print(f"\rRun time: {format_time}\tCaptured packets: {packet_count}", end="")
 		sys.stdout.flush()
 
-		fields = livecapture.capture(iface, batch_size, exit_condition)
+		packets = livecapture.capture(iface, batch_size, exit_condition)
 
-		packet_count += len(fields)
+		packet_count += len(packets)
 		# livecapture can exit before filling enough of a batch for pca to read
-		if (len(fields) > 10):
-			ipca.partial_fit(fields)
-			scatter_sample = get_scatter_sample(scatter_sample, fields, batch_size / packet_count)
+		if (len(packets) > 10):
+			ipca.partial_fit(packets)
+			proportion = batch_size / packet_count
+			scatter_sample = get_scatter_sample(scatter_sample, packets, proportion, sample_size)
+			print(len(scatter_sample))
 
 	elapsed_time = int(time.time()) - start_time
 	format_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
@@ -70,7 +73,7 @@ def scatter3d(sample, pca):
 
 	transformed = numpy.array(pca.transform(sample))
 	points, s = get_point_sizes(transformed)
-	# TODO find repeat points and plot with s proportional to frquency
+	print(len(points))
 	ax.scatter(points[:, 0], points[:, 1], zs=points[:, 2], s=s)
 
 	plt.show()
@@ -79,6 +82,7 @@ def scatter3d(sample, pca):
 def get_point_sizes(data):
 	repeat_count = dict()
 	point_lookup = dict()
+	total_repeats = 0
 	for point in data:
 		hashed_point = point.tostring()
 		if hashed_point not in repeat_count:
@@ -86,6 +90,7 @@ def get_point_sizes(data):
 			point_lookup[hashed_point] = point.tolist()
 		else:
 			repeat_count[hashed_point] += 2
+			total_repeats += 1
 
 	# Gauranteed to be the same order since they use the same hash
 	points_list = list(point_lookup.values())
@@ -95,14 +100,19 @@ def get_point_sizes(data):
 	return ordered_points, ordered_sizes
 
 
-def get_scatter_sample(scatter_sample, packets, proportional_weight):
+def get_scatter_sample(scatter_sample, packets, proportion, sample_size):
 	# In case the first iteration is cut short
-	proportional_weight = min(proportional_weight, 1)
+	proportion = min(proportion, 1)
 
-	if proportional_weight == 1:
+	if proportion == 1:
 		return packets[:len(scatter_sample)]
 
-	replace_count = int(len(scatter_sample) * proportional_weight)
+	if len(scatter_sample) < sample_size:
+		remaining_capacity = sample_size - len(scatter_sample)
+		[scatter_sample.append(x) for x in packets[:remaining_capacity]]
+		return scatter_sample
+
+	replace_count = int(len(scatter_sample) * proportion)
 	replace_count = max(replace_count, 1)
 	replace_count = min(replace_count, len(packets))
 
