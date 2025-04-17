@@ -14,7 +14,7 @@ import livecapture
 
 app_window = pywinctl.getActiveWindow()
 
-def train_live_capture(stop_condition="keyboard"):
+def train_live_capture(iface=None, timeout=None):
 	scatter_sample = [0] * 1000
 
 	# Must be bigger than 10 to work with PCA. 100 seems fine
@@ -22,27 +22,39 @@ def train_live_capture(stop_condition="keyboard"):
 	n_components = len(allfields.get_all_fields())
 	ipca = IncrementalPCA(n_components=3, batch_size=batch_size)
 
-	interface = livecapture.select_interface()
+	if iface == None:
+		iface = livecapture.select_interface()
+	else:
+		print(f"Using interface {iface}\n")
+
 	packet_count = 0
 	start_time = int(time.time())
 
-	with keyboard.Listener(on_press=on_press) as listener:
+	exit_condition = lambda _: False
+	if timeout == None:
 		print("Capturing packets and training PCA. Press q to stop training:")
-		while(listener.running):
-			elapsed_time = int(time.time()) - start_time
-			format_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
-			print(f"\rRun time: {format_time}\tCaptured packets: {packet_count}", end="")
-			sys.stdout.flush()
+		listener = keyboard.Listener(on_press=on_press)
+		listener.start()
+		exit_condition = lambda _: not listener.running
+	else:
+		print(f"Capturing packets and training PCA. Capture will run for {timeout} seconds:")
+		exit_condition = lambda _: int(time.time()) - start_time > int(timeout)
 
-			fields = livecapture.capture(batch_size, listener)
-			packet_count += len(fields)
-			# livecapture can exit before filling enough of a batch for pca to read
-			if (len(fields) > 10):
-				ipca.partial_fit(fields)
-				scatter_sample = get_scatter_sample(scatter_sample, fields, batch_size / packet_count)
+	while(not exit_condition(0)):
+		elapsed_time = int(time.time()) - start_time
+		format_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
+		print(f"\rRun time: {format_time}\tCaptured packets: {packet_count}", end="")
+		sys.stdout.flush()
 
-	listener.join()
+		fields = livecapture.capture(iface, batch_size, exit_condition)
+		packet_count += len(fields)
+		# livecapture can exit before filling enough of a batch for pca to read
+		if (len(fields) > 10):
+			ipca.partial_fit(fields)
+			scatter_sample = get_scatter_sample(scatter_sample, fields, batch_size / packet_count)
+
 	print("\n")
+	print(f"Captured {packet_count} packets")
 	scatter3d(scatter_sample, ipca)
 	print("Done")
 

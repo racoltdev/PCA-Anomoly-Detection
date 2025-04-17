@@ -16,11 +16,11 @@ def select_interface():
 	print(f"Using interface {iface}\n")
 	return iface
 
-def capture(packet_count, listener):
+def capture(iface, packet_count, exit_condition):
 	# Stop capture part way through a batch if user requests a stop
-	stop_if = lambda _: not listener.running
+	#stop_if = lambda _: not listener.running
 	packet_filter = "tcp or udp"
-	capture = sniff(count=packet_count, filter=packet_filter, stop_filter=stop_if)
+	capture = sniff(iface=iface, count=packet_count, filter=packet_filter, stop_filter=exit_condition)
 
 	fields = extract_fields(capture)
 	for i in range(len(fields)):
