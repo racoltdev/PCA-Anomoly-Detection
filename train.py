@@ -63,11 +63,33 @@ def scatter3d(sample, pca):
 	ax = fig.add_subplot(projection='3d')
 
 	transformed = numpy.array(pca.transform(sample))
+	points, s = get_point_sizes(transformed)
 	# TODO find repeat points and plot with s proportional to frquency
-	ax.scatter(transformed[:, 0], transformed[:, 1], zs=transformed[:, 2])
+	ax.scatter(points[:, 0], points[:, 1], zs=points[:, 2], s=s)
 
 	plt.show()
 	#plt.savefig("30min-NoIp.png")
+
+def get_point_sizes(data):
+	repeat_count = dict()
+	point_lookup = dict()
+	for point in data:
+		hashed_point = point.tostring()
+		if hashed_point not in repeat_count:
+			repeat_count[hashed_point] = 20
+			point_lookup[hashed_point] = point.tolist()
+		else:
+			repeat_count[hashed_point] += 2
+
+	# Gauranteed to be the same order since they use the same hash
+	#print(list(point_lookup.values()))
+	points_list = list(point_lookup.values())
+	ordered_points = numpy.array([numpy.array(p) for p in points_list])
+	#points = numpy.ndarray(list(point_lookup.values()))
+	ordered_sizes = repeat_count.values()
+
+	return ordered_points, ordered_sizes
+
 
 def get_scatter_sample(scatter_sample, packets, proportional_weight):
 	# In case the first iteration is cut short
