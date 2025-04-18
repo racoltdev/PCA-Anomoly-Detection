@@ -24,7 +24,7 @@ def live_anomaly_detect(model, c=3, iface=None, output_file=None):
 	while(not exit_condition()):
 		ui_interfaces.ui_update(start_time, packet_count, total_anomalies)
 
-		packets, raw = livecapture.capture(iface, batch_size, exit_condition)
+		packets, raw = livecapture.capture(iface, batch_size, exit_condition, True)
 		packet_count += len(packets)
 
 		observations = model.transform(packets)

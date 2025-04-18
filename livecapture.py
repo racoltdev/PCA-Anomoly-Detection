@@ -17,14 +17,14 @@ def select_interface():
 	print(f"Using interface {iface}\n")
 	return iface
 
-def capture(iface, packet_count, exit_condition):
+def capture(iface, packet_count, exit_condition, collect_raw=False):
 	# AsyncSniffer must be used to exit early on ctrl-c when count or timeout specified
 	packet_filter = "tcp or udp"
 	sniffer = AsyncSniffer(iface=iface, count=packet_count, filter=packet_filter, stop_filter=exit_condition)
 	try:
 		sniffer.start()
 		sniffer.join()
-		fields, raw = extract_fields(sniffer.results)
+		fields, raw = extract_fields(sniffer.results, collect_raw)
 		for i in range(len(fields)):
 			fields[i] = list(fields[i].values())
 		return fields, raw
@@ -50,7 +50,7 @@ def get_packet_layers(packet):
         yield layer
         counter += 1
 
-def extract_fields(capture):
+def extract_fields(capture, collect_raw):
 	fields = []
 	raw_packs = []
 	for packet in capture:
@@ -106,11 +106,15 @@ def extract_fields(capture):
 			field_dict["nbt_flags"] = layer.Flags
 
 		layer_count = 0
-		raw = []
-		for layer in get_packet_layers(packet):
-			raw.append({layer.name: layer.fields})
-			layer_count += 1
-		raw_packs.append(raw)
+		if collect_raw:
+			raw = []
+			for layer in get_packet_layers(packet):
+				raw.append({layer.name: layer.fields})
+				layer_count += 1
+			raw_packs.append(raw)
+		else:
+			for layer in get_packet_layers(packet):
+				layer_count += 1
 		field_dict["layer_count"] = layer_count
 		fields.append(field_dict)
 	return fields, raw_packs
