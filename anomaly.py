@@ -1,14 +1,12 @@
-import pickle
 import time
-import statistics
 
 import livecapture
 import ui_interfaces
 
-def live_anomaly_detect(model_file, c=2, iface=None):
-	model = None
-	with open(model_file, "rb") as f:
-		model = pickle.load(f)
+def live_anomaly_detect(model, c=3, iface=None, output_file=None):
+	log = None
+	if output_file != None:
+		log = open(output_file, "w")
 
 	batch_size = model.batch_size
 	total_anomalies = 0
@@ -20,16 +18,13 @@ def live_anomaly_detect(model_file, c=2, iface=None):
 	else:
 		print(f"Using interface {iface}\n")
 
-	if c == None:
-		c = 2
-
 	print("Capturing packets and recording anomalies. Press q to stop:")
 	exit_condition = ui_interfaces.exit_on_q()
 
 	while(not exit_condition()):
 		ui_interfaces.ui_update(start_time, packet_count, total_anomalies)
 
-		packets = livecapture.capture(iface, batch_size, exit_condition)
+		packets, raw = livecapture.capture(iface, batch_size, exit_condition)
 		packet_count += len(packets)
 
 		observations = model.transform(packets)
@@ -37,8 +32,17 @@ def live_anomaly_detect(model_file, c=2, iface=None):
 		anomalies = get_anomalies(observations, variance, c)
 		total_anomalies += len(anomalies)
 
+		if (log != None):
+			for a in anomalies:
+				line = f"Anomaly score: {a[0]}"
+				line += f"\n{raw[a[1]]}\n\n"
+				log.write(line)
+
 	ui_interfaces.ui_update(start_time, packet_count, total_anomalies)
 	print()
+
+	if log != None:
+		log.close()
 
 def get_anomalies(observations, variance, c):
 	anomalies = []

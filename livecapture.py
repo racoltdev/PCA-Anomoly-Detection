@@ -24,10 +24,10 @@ def capture(iface, packet_count, exit_condition):
 	try:
 		sniffer.start()
 		sniffer.join()
-		fields = extract_fields(sniffer.results)
+		fields, raw = extract_fields(sniffer.results)
 		for i in range(len(fields)):
 			fields[i] = list(fields[i].values())
-		return fields
+		return fields, raw
 
 	except KeyboardInterrupt:
 		sniffer.stop()
@@ -52,6 +52,7 @@ def get_packet_layers(packet):
 
 def extract_fields(capture):
 	fields = []
+	raw_packs = []
 	for packet in capture:
 		field_dict = allfields.empty_field_dict()
 		if packet.haslayer("IP"):
@@ -105,10 +106,12 @@ def extract_fields(capture):
 			field_dict["nbt_flags"] = layer.Flags
 
 		layer_count = 0
+		raw = []
 		for layer in get_packet_layers(packet):
+			raw.append({layer.name: layer.fields})
 			layer_count += 1
+		raw_packs.append(raw)
 		field_dict["layer_count"] = layer_count
 		fields.append(field_dict)
-	return fields
-
+	return fields, raw_packs
 

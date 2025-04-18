@@ -28,16 +28,16 @@ def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None)
 
 	packet_count = 0
 	start_time = int(time.time())
-	exit_condition = setup_exit_function(timeout)
 	if iface == None:
 		iface = livecapture.select_interface()
 	else:
 		print(f"Using interface {iface}\n")
 
+	exit_condition = setup_exit_function(timeout)
 	while(not exit_condition()):
 		ui_interfaces.ui_update(start_time, packet_count)
 
-		packets = livecapture.capture(iface, batch_size, exit_condition)
+		packets, _ = livecapture.capture(iface, batch_size, exit_condition)
 		packet_count += len(packets)
 
 		# livecapture can exit before filling enough of a batch for pca to train with
@@ -63,6 +63,8 @@ def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None)
 	plot.scatter3d(scatter_sample, ipca)
 	#plot.anomalies_over_time(anomaly_metrics)
 	print("Done")
+
+	return ipca
 
 def cluster(components, variance):
 	sums = []
