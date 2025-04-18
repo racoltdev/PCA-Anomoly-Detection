@@ -4,6 +4,8 @@ from pynput import keyboard
 import sys
 import time
 import pywinctl
+import pickle
+import statistics
 
 import allfields
 import livecapture
@@ -11,13 +13,21 @@ import plot
 
 app_window = pywinctl.getActiveWindow()
 
-def train_live_capture(iface=None, timeout=None):
+def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None):
 	scatter_sample = []
 	sample_size = 1000
+	anomaly_metrics = []
 
 	batch_size = 100
 	n_components = len(allfields.get_all_fields())
-	ipca = IncrementalPCA(n_components=3, batch_size=batch_size)
+
+	ipca = None
+	if pretrained == None:
+		ipca = IncrementalPCA(n_components=3, batch_size=batch_size)
+	else:
+		with open(pretrained, "rb") as f:
+			ipca = pickle.load(f)
+			batch_size = ipca.batch_size
 
 	packet_count = 0
 	start_time = int(time.time())
@@ -36,6 +46,9 @@ def train_live_capture(iface=None, timeout=None):
 		# livecapture can exit before filling enough of a batch for pca to train with
 		if (len(packets) > 10):
 			ipca.partial_fit(packets)
+			components = ipca.transform(packets)
+			variance = ipca.explained_variance_
+			anomaly_metrics.append(cluster(components, variance))
 			proportion = batch_size / packet_count
 			scatter_sample = plot.get_scatter_sample(scatter_sample, packets, proportion, sample_size)
 
@@ -43,8 +56,24 @@ def train_live_capture(iface=None, timeout=None):
 
 	print("\n")
 	print(f"Captured {packet_count} packets")
+
+	print(f"Explained variance: {ipca.explained_variance_}")
+	print(f"Explained variance ratio: {ipca.explained_variance_ratio_}")
+	if out_file != None:
+		with open(out_file, "wb") as f:
+			pickle.dump(ipca, f)
+
 	plot.scatter3d(scatter_sample, ipca)
+	plot.anomalies_over_time(anomaly_metrics)
 	print("Done")
+
+def cluster(components, variance):
+	sums = []
+	for observation in components:
+		obs_sum = sum([(y**2) / lambda_ for y, lambda_ in zip(observation, variance)])
+		sums.append(obs_sum)
+	mean_distance = statistics.fmean(sums)
+	return mean_distance
 
 def setup_exit_function(timeout):
 	if timeout == None:

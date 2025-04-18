@@ -57,3 +57,7 @@ def get_scatter_sample(scatter_sample, packets, proportion, sample_size):
 		del packets[pick]
 	return scatter_sample
 
+def anomalies_over_time(metrics):
+	plt.plot(metrics, linewidth=4)
+	plt.title("Anomaly Metric")
+	plt.show()
