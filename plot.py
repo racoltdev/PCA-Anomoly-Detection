@@ -13,6 +13,7 @@ def scatter3d(sample, pca):
 	plt.show()
 	#plt.savefig("30min-NoIp.png")
 
+# Plot repeat data as larger points in the scatter plot
 def get_point_sizes(data):
 	repeat_count = dict()
 	point_lookup = dict()
@@ -41,6 +42,7 @@ def get_scatter_sample(scatter_sample, packets, proportion, sample_size):
 	if proportion == 1:
 		return packets[:len(scatter_sample)]
 
+	# Fill up remaining capacity of sample before replacing any values
 	if len(scatter_sample) < sample_size:
 		remaining_capacity = sample_size - len(scatter_sample)
 		[scatter_sample.append(x) for x in packets[:remaining_capacity]]
@@ -50,6 +52,7 @@ def get_scatter_sample(scatter_sample, packets, proportion, sample_size):
 	replace_count = max(replace_count, 1)
 	replace_count = min(replace_count, len(packets))
 
+	# Replace some random samples with random new packets
 	for _ in range(replace_count):
 		pick = random.randint(0, len(packets) - 1)
 		replace_index = random.randint(0, len(scatter_sample) - 1)

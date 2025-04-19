@@ -13,7 +13,7 @@ import anomaly
 def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None):
 	scatter_sample = []
 	sample_size = 1000
-	anomaly_metrics = []
+	#anomaly_metrics = []
 
 	batch_size = 100
 	n_components = len(allfields.get_all_fields())
@@ -46,6 +46,7 @@ def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None)
 			#components = ipca.transform(packets)
 			#variance = ipca.explained_variance_
 			#anomaly_metrics.append(cluster(components, variance))
+			# Collect a sample of packets collected to generate a scatter plot of pca fit
 			proportion = batch_size / packet_count
 			scatter_sample = plot.get_scatter_sample(scatter_sample, packets, proportion, sample_size)
 
@@ -64,6 +65,7 @@ def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None)
 	#plot.anomalies_over_time(anomaly_metrics)
 	print("Done")
 
+	# Let main/cli handler pass model over to anomaly detection
 	return ipca
 
 def cluster(components, variance):

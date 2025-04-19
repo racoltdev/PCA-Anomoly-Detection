@@ -106,6 +106,7 @@ def extract_fields(capture, collect_raw):
 			field_dict["nbt_flags"] = layer.Flags
 
 		layer_count = 0
+		# Raw packet information is used during anomaly detection to log flagged packets
 		if collect_raw:
 			raw = []
 			for layer in get_packet_layers(packet):

@@ -21,10 +21,11 @@ def live_anomaly_detect(model, c=3, iface=None, output_file=None):
 	print("Capturing packets and recording anomalies. Press q to stop:")
 	exit_condition = ui_interfaces.exit_on_q()
 
+	# Sniff {batch_size} # of packets and detect anomalies each iteration
 	while(not exit_condition()):
 		ui_interfaces.ui_update(start_time, packet_count, total_anomalies)
 
-		packets, raw = livecapture.capture(iface, batch_size, exit_condition, True)
+		packets, raw = livecapture.capture(iface, batch_size, exit_condition, log != None)
 		packet_count += len(packets)
 
 		observations = model.transform(packets)
@@ -44,9 +45,11 @@ def live_anomaly_detect(model, c=3, iface=None, output_file=None):
 	if log != None:
 		log.close()
 
+# Return any packet with a distance greater than c
 def get_anomalies(observations, variance, c):
 	anomalies = []
 	for i, observation in enumerate(observations):
+		# Shyu et al. implementation of Mahalanobis distance for PCA
 		obs_sum = sum([(y**2) / lambda_ for y, lambda_ in zip(observation, variance)])
 		if obs_sum > c:
 			anomalies.append([obs_sum, i])
