@@ -23,4 +23,4 @@ else:
 		model = pickle.load(f)
 
 if args.cont or args.load_model != None:
-	anomaly.live_anomaly_detect(model, args.outlier_threshold, args.interface, args.output_anomalies)
+	anomaly.live_anomaly_detect(model, int(args.outlier_threshold), args.interface, args.output_anomalies)

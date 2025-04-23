@@ -10,13 +10,12 @@ import plot
 import ui_interfaces
 import anomaly
 
-def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None):
+def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None, plot_anoms=True):
 	scatter_sample = []
 	sample_size = 1000
-	#anomaly_metrics = []
+	anomaly_metrics = []
 
 	batch_size = 100
-	n_components = len(allfields.get_all_fields())
 
 	ipca = None
 	if pretrained == None:
@@ -43,9 +42,10 @@ def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None)
 		# livecapture can exit before filling enough of a batch for pca to train with
 		if (len(packets) > 10):
 			ipca.partial_fit(packets)
-			#components = ipca.transform(packets)
-			#variance = ipca.explained_variance_
-			#anomaly_metrics.append(cluster(components, variance))
+			if plot_anoms:
+				components = ipca.transform(packets)
+				variance = ipca.explained_variance_
+				anomaly_metrics.append(cluster(components, variance))
 			# Collect a sample of packets collected to generate a scatter plot of pca fit
 			proportion = batch_size / packet_count
 			scatter_sample = plot.get_scatter_sample(scatter_sample, packets, proportion, sample_size)
@@ -62,7 +62,8 @@ def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None)
 			pickle.dump(ipca, f)
 
 	plot.scatter3d(scatter_sample, ipca)
-	#plot.anomalies_over_time(anomaly_metrics)
+	if plot_anoms:
+		plot.anomalies_over_time(anomaly_metrics)
 	print("Done")
 
 	# Let main/cli handler pass model over to anomaly detection
