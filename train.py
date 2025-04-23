@@ -25,13 +25,13 @@ def train_live_capture(iface=None, timeout=None, out_file=None, pretrained=None,
 			ipca = pickle.load(f)
 			batch_size = ipca.batch_size
 
-	packet_count = 0
-	start_time = int(time.time())
 	if iface == None:
 		iface = livecapture.select_interface()
 	else:
 		print(f"Using interface {iface}\n")
 
+	packet_count = 0
+	start_time = int(time.time())
 	exit_condition = setup_exit_function(timeout)
 	while(not exit_condition()):
 		ui_interfaces.ui_update(start_time, packet_count)
