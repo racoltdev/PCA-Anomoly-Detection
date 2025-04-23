@@ -12,7 +12,7 @@ parser.add_argument("-o", "--output-model")
 parser.add_argument("-c", "--continue", dest="cont", action="store_true")
 parser.add_argument("-L", "--load-model")
 parser.add_argument("-C", "--outlier-threshold", default=3)
-parser.add_argument("-O", "--output_anomalies")
+parser.add_argument("-O", "--output-anomalies")
 args = parser.parse_args()
 
 model = None
